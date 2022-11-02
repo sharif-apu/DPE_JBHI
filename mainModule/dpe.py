@@ -19,7 +19,6 @@ from dataTools.customDataloader import *
 from utilities.inferenceUtils import *
 from utilities.aestheticUtils import *
 from loss.pytorch_msssim import *
-from loss.colorLoss import *
 from loss.percetualLoss import *
 from modelDefinitions.attentionDis import *
 from modelDefinitions.DPEGen import *
@@ -110,8 +109,8 @@ class DPE:
         # Losses
         featureLoss = regularizedFeatureLoss().to(self.device)
         reconstructionLoss = torch.nn.L1Loss().to(self.device)
-        ssimLoss = MSSSIM().to(self.device)
-        colorLoss = deltaEColorLoss(normalize=True).to(self.device)
+        #ssimLoss = MSSSIM().to(self.device)
+        #colorLoss = deltaEColorLoss(normalize=True).to(self.device)
         adversarialLoss = nn.BCELoss().to(self.device)
  
         # Overfitting Testing
