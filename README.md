@@ -21,6 +21,7 @@ Medical image acquisition devices are susceptible to producing low-quality (i.e.
 
 # Qualitative Comparison
 
+
 # Quantitative Comparison
 
 # Prerequisites
@@ -40,7 +41,7 @@ pip install -r requirement.txt
 ```
 
 # Dataset Prepration and Training
-Place all training images into an unified directory. Low-quality images will be automatically generated during training. To specify your trining images path, go to mainModule/config.json and update "gtPath" and "targetPath" entity (both path should be same). 
+Place all training images into a unified directory. Please refer to the original article for the reference datasets. Low-quality images will be automatically generated during training. To specify the path of your training image, go to mainModule/config.json and update "gtPath" and "targetPath" entities (both paths should be the same). 
 
 </br> To start training please execute the following command:
 ```
