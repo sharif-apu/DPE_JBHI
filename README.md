@@ -19,11 +19,22 @@ Analysis. **[[Click Here](https://ieeexplore.ieee.org/abstract/document/9759833)
 # Overview
 Medical image acquisition devices are susceptible to producing low-quality (i.e., low contrast, inappropriate brightness, noise, etc.) images.  Our work aims to comprehensively enhance low-quality images by incorporating end-to-end learning strategies for accelerating medical image analysis tasks.
 
+<p align="center">
+<img width=800 align="center" src = "https://github.com/sharif-apu/DPE_JBHI/blob/main/images/overview.png" alt="Overview"> </br>
+</p>
+
 # Qualitative Comparison
 
 
+<p align="center">
+<img width=800 align="center" src = "https://github.com/sharif-apu/DPE_JBHI/blob/main/images/qual.png" alt="Qualitative Comparison"> </br>
+</p>
+
 # Quantitative Comparison
 
+<p align="center">
+<img width=800 align="center" src = "https://github.com/sharif-apu/DPE_JBHI/blob/main/images/quan.png" alt="Quantitative Comparison"> </br>
+</p>
 # Prerequisites
 ```
 Python 3.8
