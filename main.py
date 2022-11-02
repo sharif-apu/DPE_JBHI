@@ -3,7 +3,7 @@ from utilities.customUtils import *
 from utilities.aestheticUtils import *
 from dataTools.processDataset import *
 from dataTools.patchExtractor import *
-from mainModule.dpbs import *
+from mainModule.dpe import *
 
 if __name__ == "__main__":
 
@@ -28,19 +28,19 @@ if __name__ == "__main__":
     if options.manualUpdate:
         config=manualUpdateEntity()
     if options.modelSummary:
-        DPBS(config).modelSummary()
+        DPE(config).modelSummary()
     if options.train:
-        DPBS(config).modelTraining(dataSamples=options.dataSamples)
+        DPE(config).modelTraining(dataSamples=options.dataSamples)
     if options.retrain:
-        DPBS(config).modelTraining(resumeTraning=True, dataSamples=options.dataSamples) 
+        DPE(config).modelTraining(resumeTraning=True, dataSamples=options.dataSamples) 
     if options.inference:
         noiseSigmaSet = None
         if options.noiseSigma:
             noiseSigmaSet = options.noiseSigma.split(',')
             noiseSigmaSet = list(map(int, noiseSigmaSet))
-        DPBS(config).modelInference(testImagesPath=options.sourceDir, outputDir=options.resultDir, noiseSet=noiseSigmaSet)
+        DPE(config).modelInference(testImagesPath=options.sourceDir, outputDir=options.resultDir, noiseSet=noiseSigmaSet)
     if options.overFitTest:
-        DPBS(config).modelTraining(overFitTest=True)
+        DPE(config).modelTraining(overFitTest=True)
     if options.dataSampling:
         datasetSampler(config, options.sourceDir, options.resultDir, options.gridSize, options.dataSamples).samplingImages()
     if options.resumeDataSampling:

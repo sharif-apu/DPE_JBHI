@@ -16,23 +16,25 @@ from torchsummary import summary
 from ptflops import get_model_complexity_info
 from utilities.torchUtils import *
 from dataTools.customDataloader import *
+from utilities.inferenceUtils import *
 from utilities.aestheticUtils import *
 from loss.pytorch_msssim import *
 from loss.colorLoss import *
 from loss.percetualLoss import *
 from modelDefinitions.attentionDis import *
-from modelDefinitions.attentionGen import *
+from modelDefinitions.NoiseDPN_GEN import *
 from torchvision.utils import save_image
 
 
-class DPBS:
+class DPE:
     def __init__(self, config):
         
         # Model Configration 
-        self.gtPath = config['gtPath']#"/media/sharif-apu/XtrasHD2/Dataset/test_large/"#
-        self.targetPath = config['targetPath']#'dataset/sample/'#"/media/sharif-apu/XtrasHD2/sampledData/DecaHexa/"
-        self.checkpointPath = "/media/sharif-apu/XtrasHD2/modelLog/checkpoint_ANETLight/"#config['checkpointPath']
-        self.logPath = "/media/sharif-apu/XtrasHD2/modelLog/logDir_ANETLight/"#config['logPath']
+        self.gtPath = config['gtPath']
+        self.targetPath = config['targetPath']
+        self.checkpointPath = config['checkpointPath']
+        self.logPath = config['logPath']
+        self.testImagesPath = config['testImagePath']
         self.resultDir = config['resultDir']
         self.modelName = config['modelName']
         self.dataSamples = config['dataSamples']
@@ -42,6 +44,7 @@ class DPBS:
         self.inputC = int(config['inputC'])
         self.outputC = int(config['outputC'])
         self.scalingFactor = int(config['scalingFactor'])
+        self.binnigFactor = int(config['binnigFactor'])
         self.totalEpoch = int(config['epoch'])
         self.interval = int(config['interval'])
         self.learningRate = float(config['learningRate'])
@@ -54,14 +57,18 @@ class DPBS:
         self.startSteps = 0
         self.totalSteps = 0
         self.adversarialMean = 0
-        self.PR = 0.25
+        self.PR = 0.0
+
         # Normalization
         self.unNorm = UnNormalize()
+
+        # Noise Level for inferencing
+        self.noiseSet = [0]
         
 
         # Preapring model(s) for GPU acceleration
         self.device =  torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self.attentionNet = attentionNet().to(self.device)
+        self.attentionNet = Noise_DPN().to(self.device)
         self.discriminator = attentiomDiscriminator().to(self.device)
 
         # Optimizers
@@ -86,7 +93,6 @@ class DPBS:
                                                 imagePathGT=self.gtPath,
                                                 height = self.imageH,
                                                 width = self.imageW,
-                                                scailingFactor = self.scalingFactor
                                             )
 
         self.trainLoader = torch.utils.data.DataLoader( dataset=datasetReadder,
@@ -102,8 +108,8 @@ class DPBS:
             self.dataSamples = dataSamples 
 
         # Losses
-        perceptualLoss = VGGPerceptualLoss(percepRegulator=1).to(self.device)
-        L1Loss = torch.nn.L1Loss().to(self.device)
+        featureLoss = regularizedFeatureLoss().to(self.device)
+        reconstructionLoss = torch.nn.L1Loss().to(self.device)
         ssimLoss = MSSSIM().to(self.device)
         colorLoss = deltaEColorLoss(normalize=True).to(self.device)
         adversarialLoss = nn.BCELoss().to(self.device)
@@ -120,9 +126,9 @@ class DPBS:
 
         # Resuming Training
         if resumeTraning == True:
-            self.modelLoad()
+            #self.modelLoad()
             try:
-                pass#self.modelLoad()
+                self.modelLoad()
 
             except:
                 #print()
@@ -133,21 +139,18 @@ class DPBS:
         
 
         # Starting Training
-        customPrint('Model training is about to begin using:' + Fore.YELLOW + '[{}]'.format(self.device).upper(), textWidth=self.barLen)
+        customPrint('Training is about to begin using:' + Fore.YELLOW + '[{}]'.format(self.device).upper(), textWidth=self.barLen)
         
         # Initiating steps
-        steps = len(trainingImageLoader)
-        self.totalSteps =  int((steps*self.totalEpoch)/self.batchSize)
+        self.totalSteps =  int(len(trainingImageLoader)*self.totalEpoch)
         startTime = time.time()
         
         # Instantiating Super Convergance 
         #self.scheduleLR = optim.lr_scheduler.OneCycleLR(optimizer=self.optimizerEG, max_lr=self.learningRate, total_steps=self.totalSteps)
-
-        
-        for currentStep in range(self.startSteps, self.totalSteps):
-
-            # Initiating progress bar 
-            bar = ProgressBar(self.totalSteps, max_width=int(self.barLen/2))
+        # Initiating progress bar 
+        bar = ProgressBar(self.totalSteps, max_width=int(self.barLen/2))
+        currentStep = self.startSteps
+        while currentStep < self.totalSteps:
 
             # Time tracker
             iterTime = time.time()
@@ -156,7 +159,6 @@ class DPBS:
                 ##############################
                 #### Initiating Variables ####
                 ##############################
-
                 # Updating Steps
                 if currentStep > self.totalSteps:
                     self.savingWeights(currentStep)
@@ -174,51 +176,33 @@ class DPBS:
                 targetReal = (torch.rand(rawInput.shape[0],1) * 0.5 + 0.7).to(self.device)
                 targetFake = (torch.rand(rawInput.shape[0],1) * 0.3).to(self.device)
 
-                valid = Variable(Tensor(rawInput.shape[0], 1).fill_(1.0), requires_grad=False).to(self.device)
-                fake = Variable(Tensor(rawInput.shape[0], 1).fill_(0.0), requires_grad=False).to(self.device)
+
                 ##############################
                 ####### Training Phase #######
                 ##############################
     
                 # Image Generation
                 highResFake = self.attentionNet(rawInput)
-
                 
+                # Optimaztion of Discriminator
+                self.optimizerED.zero_grad()
+                lossED = adversarialLoss(self.discriminator(highResReal), targetReal) + \
+                         adversarialLoss(self.discriminator(highResFake.detach()), targetFake)
+                lossED.backward()
+                self.optimizerED.step()
 
                 
                 # Optimization of generator 
                 self.optimizerEG.zero_grad()
-                generatorContentLoss =  L1Loss(highResFake, highResReal) + \
-                                        self.PR * perceptualLoss(highResFake, highResReal) + \
-                                        colorLoss(highResFake, highResReal)
+                generatorContentLoss =  reconstructionLoss(highResFake, highResReal) + featureLoss(highResFake, highResReal)#(1 - ssimLoss(highResFake, highResReal))
+                                        #featureLoss(highResFake, highResReal) + \
+                                        #colorLoss(highResFake, highResReal)
 
-                #generatorAdversarialLoss = adversarialLoss(self.discriminator(highResFake), onesConst)
-
-                pred_real = self.discriminator(highResReal.detach()) #discriminator(imgs_hr).detach()
-                pred_fake = self.discriminator(highResFake)#discriminator(gen_hr)
-
-                # Adversarial loss (relativistic average GAN)
-                generatorAdversarialLoss = adversarialLoss(pred_fake - pred_real.mean(0, keepdim=True), valid)
-
-                lossEG = generatorContentLoss * 5e-3 +  generatorAdversarialLoss * 1e-2 
+                generatorAdversarialLoss = adversarialLoss(self.discriminator(highResFake), onesConst)
+                lossEG = generatorContentLoss + 1e-3 * generatorAdversarialLoss
                 lossEG.backward()
                 self.optimizerEG.step()
 
-
-                pred_real = self.discriminator(highResReal)
-                pred_fake = self.discriminator(highResFake.detach())
-
-                # Optimaztion of Discriminator
-                self.optimizerED.zero_grad()
-                loss_real = adversarialLoss(pred_real - pred_fake.mean(0, keepdim=True), valid)
-                loss_fake = adversarialLoss(pred_fake - pred_real.mean(0, keepdim=True), fake)
-
-                # Total loss
-                lossED = (loss_real + loss_fake) / 2
-                #lossED = adversarialLoss(self.discriminator(highResReal), targetReal) + \
-                #         adversarialLoss(self.discriminator(highResFake.detach()), targetFake)
-                lossED.backward()
-                self.optimizerED.step()
                 # Steps for Super Convergance            
                 #self.scheduleLR.step()
 
@@ -227,13 +211,13 @@ class DPBS:
                 ##########################   
 
                 # Progress Bar
-                if (currentStep  + 1) % self.interval/2 == 0:
+                if (currentStep  + 1) % self.interval/10 == 0:
                     bar.numerator = currentStep + 1
-                    print(Fore.YELLOW + "Steps |",bar,Fore.YELLOW + "| LossEG: {:.4f}, LossED: {:.4f}, APR: {}".format(lossEG, lossED,self.PR),end='\r')
+                    print(Fore.YELLOW + "Steps |",bar,Fore.YELLOW + "| LossEG: {:.4f}, LossED: {:.4f}".format(lossEG, lossED),end='\r')
                     
                 
                 # Updating training log
-                if (currentStep + 1) % self.interval == 0:
+                if (currentStep + 1) % self.interval/10 == 0:
                    
                     # Updating Tensorboard
                     summaryInfo = { 
@@ -253,37 +237,59 @@ class DPBS:
                     # Saving Weights and state of the model for resume training 
                     self.savingWeights(currentStep)
                 
-                if (currentStep + 1) % (self.interval ** 2) == 0 : 
-                    self.modelInference()
-                    #if self.PR < 0.5: self.PR = round(self.PR + 0.10, 1)
+                if (currentStep + 1) % 5000 == 0 : 
+                    print("\n")
+                    self.savingWeights(currentStep + 1, True)
+                    self.modelInference(validation=True, steps = currentStep + 1)
                     eHours, eMinutes, eSeconds = timer(iterTime, time.time())
-                    print (Fore.CYAN +'Steps [{}/{}] | Time elapsed [{:0>2}:{:0>2}:{:0>2}] | LossC: {:.2f}, LossP : {:.2f}, LossEG: {:.2f}, LossED: {:.2f}, SLR: {}' 
-                            .format(currentStep + 1, self.totalSteps, eHours, eMinutes, eSeconds, colorLoss(highResFake, highResReal), perceptualLoss(highResFake, highResReal),lossEG, lossED, self.scheduleLR.get_last_lr()))
+                    print (Fore.CYAN +'Steps [{}/{}] | Time elapsed [{:0>2}:{:0>2}:{:0>2}] | LossC: {:.2f}, LossP : {:.2f}, LossEG: {:.2f}, LossED: {:.2f}' 
+                            .format(currentStep + 1, self.totalSteps, eHours, eMinutes, eSeconds, colorLoss(highResFake, highResReal), featureLoss(highResFake, highResReal),lossEG, lossED))
                     
+   
+    def modelInference(self, testImagesPath = None, outputDir = None, resize = None, validation = None, noiseSet = None, steps = None):
+    
+        if not validation:
+            self.modelLoad()
+            print("\nInferencing on pretrained weights.")
+        else:
+            print("Validation about to begin.")
+        if not noiseSet:
+            noiseSet = self.noiseSet
+        if testImagesPath:
+            self.testImagesPath = testImagesPath
+        if outputDir:
+            self.resultDir = outputDir
+        
 
-        
-    def modelInference(self, sourceDir = None, targetDir = None, imgW = None, imgH = None, gridSize = 4, multiCheckpoint = False):
-        print("Inferancing about to begin.")
-        if targetDir:
-            self.resultDir = targetDir
-        if imgH and imgW == None:
-            imgW
-        self.modelLoad()
-        #self.attentionNet.eval()
-        sourceDir = "/media/sharif-apu/XtrasHD/Testing Dataset/McM/"#self.targetPath#"testData/"
-        print(sourceDir)
-        testImageList = imageList(sourceDir)
-        print (len(testImageList))
-        #testImageList = testImageList[:100]
+        modelInference = inference(gridSize=self.binnigFactor, inputRootDir=self.testImagesPath, outputRootDir=self.resultDir, modelName=self.modelName, validation=validation)
+
+        testImageList = modelInference.testingSetProcessor()
+        barVal = ProgressBar(len(testImageList) * len(noiseSet), max_width=int(50))
+        imageCounter = 0
+        from datetime import datetime
         with torch.no_grad():
-            for imgPath in testImageList:
-                #print(imgPath)
-                img = inputForInference(imgPath).to(self.device)
-                output = self.attentionNet(img)
-                saveModelOutput(output, self.resultDir, imgPath)
-        
-    def multiInference(self):
-        pass
+            for noise in noiseSet:
+                #print(noise)
+                #try:
+                for imgPath in testImageList:
+                    #a = datetime.now()
+                    img = modelInference.inputForInference(imgPath, noiseLevel=noise).to(self.device)
+                    #print(img.shape, imgPath)
+                   
+                    output = self.attentionNet(img)
+                    #b = datetime.now()
+                    #d = b - a
+                    #print(img.shape, d)
+                    modelInference.saveModelOutput(output, imgPath, noise, steps)
+                    imageCounter += 1
+                    if imageCounter % 2 == 0:
+                        barVal.numerator = imageCounter
+                        print(Fore.CYAN + "Image Processd |", barVal,Fore.CYAN, end='\r')
+                #except:
+                #    os.remove(imgPath)
+                #    print ("File deleted:", imgPath, img.shape)
+        print("\n")
+
     def modelSummary(self,input_size = None):
         if not input_size:
             input_size = (3, self.imageH//self.scalingFactor, self.imageW//self.scalingFactor)
@@ -299,19 +305,19 @@ class DPBS:
         print ("*" * self.barLen)
         print()
 
-        flops, params = get_model_complexity_info(self.attentionNet, input_size, as_strings=True, print_per_layer_stat=False)
+        '''flops, params = get_model_complexity_info(self.attentionNet, input_size, as_strings=True, print_per_layer_stat=False)
         customPrint('Computational complexity (Enhace-Gen):{}'.format(flops), self.barLen, '-')
         customPrint('Number of parameters (Enhace-Gen):{}'.format(params), self.barLen, '-')
 
         flops, params = get_model_complexity_info(self.discriminator, input_size, as_strings=True, print_per_layer_stat=False)
         customPrint('Computational complexity (Enhace-Dis):{}'.format(flops), self.barLen, '-')
         customPrint('Number of parameters (Enhace-Dis):{}'.format(params), self.barLen, '-')
-        print()
+        print()'''
 
         configShower()
         print ("*" * self.barLen)
     
-    def savingWeights(self, currentStep):
+    def savingWeights(self, currentStep, duplicate=None):
         # Saving weights 
         checkpoint = { 
                         'step' : currentStep + 1,
@@ -322,6 +328,10 @@ class DPBS:
                         'schedulerLR': self.scheduleLR
                         }
         saveCheckpoint(modelStates = checkpoint, path = self.checkpointPath, modelName = self.modelName)
+        if duplicate:
+            saveCheckpoint(modelStates = checkpoint, path = self.checkpointPath + str(currentStep) + "/", modelName = self.modelName, backup=None)
+
+
 
     def modelLoad(self):
 
