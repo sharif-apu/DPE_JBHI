@@ -37,13 +37,20 @@ Medical image acquisition devices are susceptible to producing low-quality (i.e.
 </p>
 
 </br>
+
+
 # Prerequisites
+
+
 ```
 Python 3.8
 CUDA 10.1 + CuDNN
 pip
 Virtual environment (optional)
+
 ```
+
+
 
 # Installation
 **Please consider using a virtual environment to continue the installation process.**
