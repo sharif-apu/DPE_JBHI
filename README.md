@@ -35,6 +35,8 @@ Medical image acquisition devices are susceptible to producing low-quality (i.e.
 <p align="center">
 <img width=800 align="center" src = "https://github.com/sharif-apu/DPE_JBHI/blob/main/images/quan.png" alt="Quantitative Comparison"> </br>
 </p>
+
+</br>
 # Prerequisites
 ```
 Python 3.8
