@@ -4,36 +4,19 @@ import torch
 import torch.nn.init as init
 from torchsummary import summary
 
-'''class FMModule(nn.Module):
-    def __init__(self,in_channels,kernel_size=3,stride=1,padding=1, inputLayer=False):
-        super(FMModule,self).__init__()
-        if inputLayer == True:
-            #print("input true")
-            out_channel = in_channels
-            self.conv1 = nn.Conv2d(3,in_channels,kernel_size,stride,padding)
-            
-        else:
-            out_channel = int (in_channels * 1.5)
-            self.conv1 = nn.Conv2d(in_channels,in_channels,kernel_size,stride,padding)
-        self.conv1_relu = nn.PReLU()
-
-        self.conv2 = nn.Conv2d(in_channels,in_channels,kernel_size,stride,padding)
-        self.conv2_relu = nn.PReLU()
-
-        self.conv3 = nn.Conv2d(in_channels,in_channels,kernel_size,stride,padding)
-        self.conv3_relu = nn.PReLU()
-
-    def forward(self,x):
-        x1 = self.conv1_relu(self.conv1(x))
-        x2 = self.conv2_relu(self.conv2(x1))
-        x3 = self.conv3(x2) + x1
-        xOut =  self.conv3_relu(x3)
-        return xOut'''
+def init_weights(m):
+    if isinstance(m, nn.Conv2d):
+        nn.init.xavier_uniform_(m.weight)
 
 
-class FMModule(nn.Module):
+def swish(x):
+    return x * torch.sigmoid(x)
+
+
+
+class ResidualBlock(nn.Module):
     def __init__(self, in_features):
-        super(FMModule, self).__init__()
+        super(ResidualBlock, self).__init__()
         self.conv_block = nn.Sequential(
             nn.Conv2d(in_features, in_features, kernel_size=3, stride=1, padding=1),
             #nn.BatchNorm2d(in_features, 0.8),

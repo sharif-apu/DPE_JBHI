@@ -22,7 +22,7 @@ from loss.pytorch_msssim import *
 from loss.colorLoss import *
 from loss.percetualLoss import *
 from modelDefinitions.attentionDis import *
-from modelDefinitions.NoiseDPN_GEN import *
+from modelDefinitions.DPEGen import *
 from torchvision.utils import save_image
 
 
@@ -39,8 +39,8 @@ class DPE:
         self.modelName = config['modelName']
         self.dataSamples = config['dataSamples']
         self.batchSize = int(config['batchSize'])
-        self.imageH = 128#int(config['imageH'])
-        self.imageW = 128#int(config['imageW'])
+        self.imageH = int(config['imageH'])
+        self.imageW = int(config['imageW'])
         self.inputC = int(config['inputC'])
         self.outputC = int(config['outputC'])
         self.scalingFactor = int(config['scalingFactor'])
@@ -68,7 +68,7 @@ class DPE:
 
         # Preapring model(s) for GPU acceleration
         self.device =  torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        self.attentionNet = Noise_DPN().to(self.device)
+        self.attentionNet = DPENet().to(self.device)
         self.discriminator = attentiomDiscriminator().to(self.device)
 
         # Optimizers
@@ -211,13 +211,13 @@ class DPE:
                 ##########################   
 
                 # Progress Bar
-                if (currentStep  + 1) % self.interval/10 == 0:
+                if (currentStep  + 1) % 10== 0:
                     bar.numerator = currentStep + 1
                     print(Fore.YELLOW + "Steps |",bar,Fore.YELLOW + "| LossEG: {:.4f}, LossED: {:.4f}".format(lossEG, lossED),end='\r')
                     
                 
                 # Updating training log
-                if (currentStep + 1) % self.interval/10 == 0:
+                if (currentStep + 1) % self.interval == 0:
                    
                     # Updating Tensorboard
                     summaryInfo = { 

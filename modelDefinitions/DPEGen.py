@@ -1,46 +1,46 @@
 import torch.nn.functional as F
 import torch.nn as nn
 from torchsummary import summary
-from modelDefinitions.basicBlocksDPN import *
+from modelDefinitions.basicBlocksDPE import *
 
-class Noise_DPN(nn.Module):
+class DPENet(nn.Module):
     def __init__(self):
-        super(Noise_DPN, self).__init__()
+        super(DPENet, self).__init__()
 
         self.inConv = nn.Conv2d(3,64, 3,1,1)
-        self.FM0 = FMModule(64)
+        self.FM0 = ResidualBlock(64)
 
-        self.FM1 = FMModule(64)
+        self.FM1 = ResidualBlock(64)
         self.gate1 = GatedConv2d(64, 64, 3, padding=1)
         self.down1 = nn.Conv2d(64,96, kernel_size=3, stride=2, padding=1)
 
-        self.FM2 = FMModule(96)
+        self.FM2 = ResidualBlock(96)
         self.gate2 = GatedConv2d(96, 96, 3, padding=1)
         self.down2 = nn.Conv2d(96,128, kernel_size=3, stride=2, padding=1)
         
-        self.FM3 = FMModule(128)
+        self.FM3 = ResidualBlock(128)
         self.gate3 = GatedConv2d(128, 128, 3, padding=1)
         self.down3 = nn.Conv2d(128, 160, kernel_size=3, stride=2, padding=1)
 
-        self.FM4 = FMModule(160)
+        self.FM4 = ResidualBlock(160)
         self.gate4 = GatedConv2d(160, 160, 3, padding=1)
         self.down4 = nn.Conv2d(160, 192, kernel_size=3, stride=2, padding=1)
 
 
-        self.FM5 = FMModule(192)
+        self.FM5 = ResidualBlock(192)
         self.gate5 = GatedConv2d(192, 192, 3, padding=1)
         self.up1 = nn.ConvTranspose2d(192, 160, 2, 2)
 
-        self.FM6 = FMModule(160)
+        self.FM6 = ResidualBlock(160)
         self.up2 = nn.ConvTranspose2d(160, 128, 2,2)
 
-        self.FM7 = FMModule(128)
+        self.FM7 = ResidualBlock(128)
         self.up3 = nn.ConvTranspose2d(128, 96, 2,2)
 
-        self.FM8 = FMModule(96)
+        self.FM8 = ResidualBlock(96)
         self.up4 = nn.ConvTranspose2d(96, 64, 2,2)
         
-        self.FM9 = FMModule(64)
+        self.FM9 = ResidualBlock(64)
 
         self.outc = nn.Conv2d(64,3,1,)
 
