@@ -2,10 +2,10 @@
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/deep-perceptual-enhancement-for-medical-image/medical-image-enhancement-on-brain-tumor-mri)](https://paperswithcode.com/sota/medical-image-enhancement-on-brain-tumor-mri?p=deep-perceptual-enhancement-for-medical-image)
 [![PWC](https://img.shields.io/endpoint.svg?url=https://paperswithcode.com/badge/deep-perceptual-enhancement-for-medical-image/medical-image-enhancement-on-human-protein)](https://paperswithcode.com/sota/medical-image-enhancement-on-human-protein?p=deep-perceptual-enhancement-for-medical-image)
 
-This is the official implementation of paper title "Deep Perceptual Enhancement for Medical Image
+This is the official implementation of the paper titled "Deep Perceptual Enhancement for Medical Image
 Analysis. **[[Click Here](https://ieeexplore.ieee.org/abstract/document/9759833)]**.
 
-**Please consider to cite this paper as follows:**
+**Please consider citing this paper as follows:**
 
 ```
 @article{sharif2022deep,
